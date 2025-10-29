@@ -10,6 +10,6 @@
   },
   "devDependencies": {
     "vite": "^7",
-    "javascript-obfuscator": "^4",
+    "javascript-obfuscator": "^4"
   }
 }
