@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^7"
+    "vite": "^7",
+    "javascript-obfuscator": "^4",
   }
 }
