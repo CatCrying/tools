@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import javascriptObfuscator from './plugins/obfuscator.mjs';
+import javascriptObfuscator from './plugins/obfuscator.js';
 
 
 export default defineConfig({
