@@ -1,148 +1,40 @@
 import './style.css';
 
-/**
- * App State and Initialization
- */
-const app = {
-  // A simple router to load different tools. For now, it just loads the base converter.
-  init() {
-    this.renderNavbar();
-    this.renderFooter();
-    this.router.navigateTo('base-converter');
-  },
-  
-  // Simple client-side router
-  router: {
-    routes: {
-      'base-converter': renderBaseConverter,
-      // You can add more tools here in the future
-      // 'another-tool': renderAnotherTool,
-    },
-    navigateTo(route) {
-      const container = document.getElementById('app-container');
-      container.innerHTML = ''; // Clear previous content
-      if (this.routes[route]) {
-        this.routes[route](container);
-      } else {
-        container.innerHTML = `<h1>404 - Tool Not Found</h1>`;
-      }
-    }
-  },
-
-  renderNavbar() {
-    const navContainer = document.getElementById('navbar-container');
-    navContainer.innerHTML = `
-      <div class="nav-container">
-        <a href="#base-converter" class="nav-link active">Base Converter</a>
-      </div>
-    `;
-    // Add event listeners for nav links if more tools are added
-  },
-
-  renderFooter() {
-    const footerContainer = document.getElementById('footer-container');
-    const currentYear = new Date().getFullYear();
-    footerContainer.innerHTML = `
-      <p>GhostBlade Web Tools &copy; ${currentYear}</p>
-      <p>A collection of simple, fast, and open-source web utilities.</p>
-    `;
-  }
+const baseConverterPage = {
+    bases: [ { name: 'BIN', radix: 2, label: 'BIN', placeholder: 'BASE 2', validationRegex: /^[01]*$/ }, { name: 'OCT', radix: 8, label: 'OCT', placeholder: 'BASE 8', validationRegex: /^[0-7]*$/ }, { name: 'DEC', radix: 10, label: 'DEC', placeholder: 'BASE 10', validationRegex: /^[0-9]*$/ }, { name: 'HEX', radix: 16, label: 'HEX', placeholder: 'BASE 16', validationRegex: /^[0-9a-fA-F]*$/ }, ],
+    render(c) { c.innerHTML = `<div class="converter-header"><h1>Base Converter</h1><button id="resetBtn">RESET</button></div><div class="converter-wrapper">${this.bases.map(b => `<div class="base-row"><span class="base-label">${b.label}</span><input type="text" class="base-input" placeholder="${b.placeholder}" data-radix="${b.radix}" autocomplete="off" autocorrect="off" spellcheck="false"></div>`).join('')}</div>`; this.addEventListeners(c); },
+    addEventListeners(c) { const i = c.querySelectorAll('.base-input'); i.forEach(n => { n.addEventListener('input', e => this.handleInput(e, i)); }); c.querySelector('#resetBtn').addEventListener('click', () => { i.forEach(n => { n.value = ''; n.classList.remove('invalid'); }); }); },
+    handleInput(e, a) { const t = e.target, r = parseInt(t.dataset.radix, 10), i = this.bases.find(b => b.radix === r); if (!i.validationRegex.test(t.value)) { t.classList.add('invalid'); return; } t.classList.remove('invalid'); const l = t.value === '' ? null : parseInt(t.value, r); a.forEach(input => { const currentRadix = parseInt(input.dataset.radix, 10); if (currentRadix !== r) { input.value = (l === null || isNaN(l)) ? '' : l.toString(currentRadix).toUpperCase(); } }); }
 };
 
-/**
- * Base Converter Tool
- */
-function renderBaseConverter(container) {
-  // The <button id="resetBtn"> element has been removed from this HTML string.
-  container.innerHTML = `
-    <section id="base-converter-tool">
-      <div class="converter-header">
-        <h1>Base Converter</h1>
-      </div>
-      <div class="converter-wrapper">
-        <div class="base-row">
-          <span class="base-label">DEC</span>
-          <input type="text" class="base-input" id="dec-input" data-base="10" placeholder="0">
-        </div>
-        <div class="base-row">
-          <span class="base-label">HEX</span>
-          <input type="text" class="base-input" id="hex-input" data-base="16" placeholder="0">
-        </div>
-        <div class="base-row">
-          <span class="base-label">BIN</span>
-          <input type="text" class="base-input" id="bin-input" data-base="2" placeholder="0">
-        </div>
-        <div class="base-row">
-          <span class="base-label">OCT</span>
-          <input type="text" class="base-input" id="oct-input" data-base="8" placeholder="0">
-        </div>
-      </div>
-    </section>
-  `;
+const valueToHexPage = {
+    u32ToHex: v => [255 & v, v >> 8 & 255, v >> 16 & 255, v >> 24 & 255].map(v => v.toString(16).padStart(2, '0')).join(' ').toUpperCase(),
+    float32ToUint32: v => { const b = new ArrayBuffer(4), d = new DataView(b); d.setFloat32(0, v, false); return d.getUint32(0, false); },
+    float64ToBigUint64: v => { const b = new ArrayBuffer(8), d = new DataView(b); d.setFloat64(0, v, false); return d.getBigUint64(0, false); },
+    generateArm32Code(v) { const i = [], l = 65535 & v, u = v >> 16 & 65535; i.push(3774873600 | (4095 & l) | l >> 12 << 16); if (u > 0) i.push(3814563840 | (4095 & u) | u >> 12 << 16); i.push(3778691102); return i.map(this.u32ToHex).join(' '); },
+    generateArm64Code(v) { const i = [], c = [65535n & v, v >> 16n & 65535n, v >> 32n & 65535n, v >> 48n & 65535n]; i.push(Number(3532972032n | c[0] << 5n)); if (c[1] > 0) i.push(Number(4070572032n | c[1] << 5n)); if (c[2] > 0) i.push(Number(4072669184n | c[2] << 5n)); if (c[3] > 0) i.push(Number(4074766336n | c[3] << 5n)); i.push(3596596160); return i.map(this.u32ToHex).join(' '); },
+    render(c) { c.innerHTML = `<div class="card"><h2 class="card-title">Value To Hex</h2><div class="form-group"><label class="form-label">Architecture</label><div class="radio-group"><label><input type="radio" name="architecture" value="arm32" checked> ARM32 (4 Bytes)</label><label><input type="radio" name="architecture" value="arm64"> ARM64 (8 Bytes)</label></div></div><div class="form-group"><label class="form-label" for="typeSelect">Type</label><select id="typeSelect" class="form-select"><option value="int">INT</option><option value="float">Float</option><option value="boolean">Boolean</option></select></div><div class="form-group"><label class="form-label" for="valueInput1">Value</label><div id="valueInputsContainer"><input type="text" id="valueInput1" class="form-input" placeholder="Enter value"></div></div><button id="convertBtn" class="action-btn-gradient">Convert</button><div class="form-group result-group"><label class="form-label">Result</label><div class="result-wrapper"><input type="text" id="resultInput" class="form-input" readonly placeholder="Click result to copy" title="Click to copy"></div></div></div>`; this.addEventListeners(c); },
+    addEventListeners(c) { c.querySelector('#convertBtn').addEventListener('click', () => this.handleConvert(c)); c.querySelector('#resultInput').addEventListener('click', e => this.handleCopy(e.currentTarget)); },
+    handleConvert(c) { const a = c.querySelector('input[name="architecture"]:checked').value, t = c.querySelector('#typeSelect').value, v = c.querySelector('#valueInput1').value.trim(), r = c.querySelector('#resultInput'); try { const e = (i, t) => { if (t === '') throw new Error("Input value cannot be empty."); if ("arm32" === a) { let r; if (i === "int") r = parseInt(t, 10); else if (i === "float") r = this.float32ToUint32(parseFloat(t)); else r = t.toLowerCase() === "true" || t === "1" ? 1 : 0; if (isNaN(r)) throw new Error(`Invalid ${i} value: "${t}"`); return this.generateArm32Code(r); } let r; if (i === "int") r = BigInt(t); else if (i === "float") r = this.float64ToBigUint64(parseFloat(t)); else r = t.toLowerCase() === "true" || t === "1" ? 1n : 0n; if (typeof r !== "bigint") throw new Error(`Invalid ${i} value: "${t}"`); return this.generateArm64Code(r); }; let n; switch (t) { case "int": n = e("int", v); break; case "float": n = e("float", v); break; case "boolean": n = e("boolean", v); } r.value = n; } catch (e) { r.value = `Error: ${e.message}`; } },
+    handleCopy(i) { const o = i.value; if (!o || o.startsWith('Error')) return; navigator.clipboard.writeText(o).then(() => { i.value = 'Copied!'; i.classList.add('copied-feedback'); setTimeout(() => { i.value = o; i.classList.remove('copied-feedback'); }, 1500); }); }
+};
 
-  const inputs = {
-    dec: document.getElementById('dec-input'),
-    hex: document.getElementById('hex-input'),
-    bin: document.getElementById('bin-input'),
-    oct: document.getElementById('oct-input'),
-  };
-
-  const validationRegex = {
-    10: /^[0-9]*$/,
-    16: /^[0-9a-fA-F]*$/,
-    2: /^[01]*$/,
-    8: /^[0-7]*$/,
-  };
-
-  const clearAllInputs = () => {
-    Object.values(inputs).forEach(input => {
-      input.value = '';
-      input.classList.remove('invalid');
-    });
-  };
-
-  const handleInputChange = (e) => {
-    const sourceInput = e.target;
-    const sourceBase = parseInt(sourceInput.dataset.base);
-    const sourceValue = sourceInput.value.trim();
-
-    // If input is empty, clear all other inputs and exit
-    if (sourceValue === '') {
-      clearAllInputs();
-      return;
+function renderNavbar(c) { c.innerHTML = `<div class="nav-container"><a href="#/base-converter" class="nav-link">Base Converter</a><a href="#/value-to-hex" class="nav-link">Value to Hex</a></div>`; }
+function renderFooter(c) {
+    let timeString;
+    try {
+        const buildDate = new Date(__BUILD_TIMESTAMP__);
+        const p = n => n.toString().padStart(2, '0');
+        timeString = `Last build: ${p(buildDate.getDate())}/${p(buildDate.getMonth() + 1)}/${p(buildDate.getFullYear()).toString().slice(-2)} ${p(buildDate.getHours())}:${p(buildDate.getMinutes())}:${p(buildDate.getSeconds())}`;
+    } catch(e) {
+        timeString = 'Build time not available in dev.';
     }
-
-    // Validate input
-    if (!validationRegex[sourceBase].test(sourceValue)) {
-      sourceInput.classList.add('invalid');
-      return;
-    }
-    sourceInput.classList.remove('invalid');
-
-    // Convert to decimal first
-    const decimalValue = BigInt(`0${sourceBase === 16 ? 'x' : sourceBase === 8 ? 'o' : sourceBase === 2 ? 'b' : ''}${sourceValue}`);
-
-    // Update all other inputs
-    Object.values(inputs).forEach(input => {
-      if (input !== sourceInput) {
-        const targetBase = parseInt(input.dataset.base);
-        if (decimalValue === 0n) {
-          input.value = '';
-        } else {
-          input.value = decimalValue.toString(targetBase).toUpperCase();
-        }
-        input.classList.remove('invalid');
-      }
-    });
-  };
-
-  Object.values(inputs).forEach(input => {
-    input.addEventListener('input', handleInputChange);
-  });
-  
-  // The code block for selecting and adding an event listener to #resetBtn has been removed.
+    c.innerHTML = `<p>${timeString}</p><p>© ${new Date().getFullYear()} GHOSTBLADE. All rights reserved.</p>`;
 }
+const routes = { '/': baseConverterPage, '/base-converter': baseConverterPage, '/value-to-hex': valueToHexPage, };
+function router() { const c = document.getElementById('app-container'), p = window.location.hash.slice(1) || '/', a = routes[p] || routes['/']; c.innerHTML = ''; a.render(c); }
 
-
-// Start the application
-app.init();
+renderNavbar(document.getElementById('navbar-container'));
+renderFooter(document.getElementById('footer-container'));
+window.addEventListener('hashchange', router);
+router();
