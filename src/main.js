@@ -1,260 +1,40 @@
 import './style.css';
 
-// --- DOM Elements ---
-const navbarContainer = document.getElementById('navbar-container');
-const appContainer = document.getElementById('app-container');
-const footerContainer = document.getElementById('footer-container');
-
-// --- Tool: Value to Hex Converter (Upgraded) ---
-
-const renderValueToHex = () => {
-  appContainer.innerHTML = `
-    <div class="card">
-      <h2 class="card-title">Value to Hex Converter</h2>
-      <div class="form-group">
-        <label for="inputValue" class="form-label">Input Value</label>
-        <input type="text" id="inputValue" class="form-input" placeholder="e.g., 42, 3.14, or 9007199254740991">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Data Type</label>
-        <div class="radio-group" id="dataType">
-          <label><input type="radio" name="type" value="short"> Short (Int16)</label>
-          <label><input type="radio" name="type" value="int" checked> Integer (Int32)</label>
-          <label><input type="radio" name="type" value="long"> Long (BigInt64)</label>
-          <label><input type="radio" name="type" value="float"> Float (Float32)</label>
-          <label><input type="radio" name="type" value="double"> Double (Float64)</label>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Endianness</label>
-        <div class="radio-group" id="endianness">
-          <label><input type="radio" name="endian" value="little"> Little Endian</label>
-          <label><input type="radio" name="endian" value="big" checked> Big Endian</label>
-        </div>
-      </div>
-      <button id="convertBtn" class="action-btn-gradient">Convert to Hex</button>
-      <div class="result-group">
-        <label class="form-label">Hex Result</label>
-        <div class="result-wrapper">
-          <input type="text" id="resultInput" class="base-input" readonly placeholder="Hex output will appear here...">
-        </div>
-      </div>
-    </div>
-  `;
-
-  // --- Event Listeners for Value to Hex ---
-  const convertBtn = document.getElementById('convertBtn');
-  const resultInput = document.getElementById('resultInput');
-  const inputValue = document.getElementById('inputValue');
-
-  const performConversion = () => handleValueToHexConversion();
-
-  convertBtn.addEventListener('click', performConversion);
-  inputValue.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      performConversion();
-    }
-  });
-
-  resultInput.addEventListener('click', () => {
-    if (!resultInput.value || resultInput.value.startsWith('Error:')) return;
-    navigator.clipboard.writeText(resultInput.value).then(() => {
-      const originalText = resultInput.value;
-      resultInput.value = 'Copied to clipboard!';
-      resultInput.classList.add('copied-feedback');
-      setTimeout(() => {
-        resultInput.value = originalText;
-        resultInput.classList.remove('copied-feedback');
-      }, 1500);
-    });
-  });
+const baseConverterPage = {
+    bases: [ { name: 'BIN', radix: 2, label: 'BIN', placeholder: 'BASE 2', validationRegex: /^[01]*$/ }, { name: 'OCT', radix: 8, label: 'OCT', placeholder: 'BASE 8', validationRegex: /^[0-7]*$/ }, { name: 'DEC', radix: 10, label: 'DEC', placeholder: 'BASE 10', validationRegex: /^[0-9]*$/ }, { name: 'HEX', radix: 16, label: 'HEX', placeholder: 'BASE 16', validationRegex: /^[0-9a-fA-F]*$/ }, ],
+    render(c) { c.innerHTML = `<div class="converter-header"><h1>Base Converter</h1><button id="resetBtn">RESET</button></div><div class="converter-wrapper">${this.bases.map(b => `<div class="base-row"><span class="base-label">${b.label}</span><input type="text" class="base-input" placeholder="${b.placeholder}" data-radix="${b.radix}" autocomplete="off" autocorrect="off" spellcheck="false"></div>`).join('')}</div>`; this.addEventListeners(c); },
+    addEventListeners(c) { const i = c.querySelectorAll('.base-input'); i.forEach(n => { n.addEventListener('input', e => this.handleInput(e, i)); }); c.querySelector('#resetBtn').addEventListener('click', () => { i.forEach(n => { n.value = ''; n.classList.remove('invalid'); }); }); },
+    handleInput(e, a) { const t = e.target, r = parseInt(t.dataset.radix, 10), i = this.bases.find(b => b.radix === r); if (!i.validationRegex.test(t.value)) { t.classList.add('invalid'); return; } t.classList.remove('invalid'); const l = t.value === '' ? null : parseInt(t.value, r); a.forEach(input => { const currentRadix = parseInt(input.dataset.radix, 10); if (currentRadix !== r) { input.value = (l === null || isNaN(l)) ? '' : l.toString(currentRadix).toUpperCase(); } }); }
 };
 
-const handleValueToHexConversion = () => {
-  const valueStr = document.getElementById('inputValue').value.trim();
-  const type = document.querySelector('input[name="type"]:checked').value;
-  const isLittleEndian = document.querySelector('input[name="endian"]:checked').value === 'little';
-  const resultInput = document.getElementById('resultInput');
-
-  if (valueStr === '') {
-    resultInput.value = 'Error: Input value is empty.';
-    return;
-  }
-
-  let buffer;
-  let view;
-  let value;
-
-  try {
-    switch (type) {
-      case 'short': // Int16 (New)
-        buffer = new ArrayBuffer(2);
-        view = new DataView(buffer);
-        value = parseInt(valueStr, 10);
-        if (isNaN(value)) throw new Error('Invalid integer for Short');
-        view.setInt16(0, value, isLittleEndian);
-        break;
-
-      case 'int': // Int32
-        buffer = new ArrayBuffer(4);
-        view = new DataView(buffer);
-        value = parseInt(valueStr, 10);
-        if (isNaN(value)) throw new Error('Invalid integer for Int');
-        view.setInt32(0, value, isLittleEndian);
-        break;
-
-      case 'long': // BigInt64 (New)
-        buffer = new ArrayBuffer(8);
-        view = new DataView(buffer);
-        value = BigInt(valueStr);
-        view.setBigInt64(0, value, isLittleEndian);
-        break;
-
-      case 'float': // Float32
-        buffer = new ArrayBuffer(4);
-        view = new DataView(buffer);
-        value = parseFloat(valueStr);
-        if (isNaN(value)) throw new Error('Invalid number for Float');
-        view.setFloat32(0, value, isLittleEndian);
-        break;
-
-      case 'double': // Float64 (New)
-        buffer = new ArrayBuffer(8);
-        view = new DataView(buffer);
-        value = parseFloat(valueStr);
-        if (isNaN(value)) throw new Error('Invalid number for Double');
-        view.setFloat64(0, value, isLittleEndian);
-        break;
-      
-      default:
-        throw new Error('Unknown data type');
-    }
-
-    const hexString = Array.from(new Uint8Array(buffer))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-    
-    resultInput.value = `0x${hexString.toUpperCase()}`;
-
-  } catch (error) {
-    resultInput.value = `Error: ${error.message}.`;
-  }
+const valueToHexPage = {
+    u32ToHex: v => [255 & v, v >> 8 & 255, v >> 16 & 255, v >> 24 & 255].map(v => v.toString(16).padStart(2, '0')).join(' ').toUpperCase(),
+    float32ToUint32: v => { const b = new ArrayBuffer(4), d = new DataView(b); d.setFloat32(0, v, false); return d.getUint32(0, false); },
+    float64ToBigUint64: v => { const b = new ArrayBuffer(8), d = new DataView(b); d.setFloat64(0, v, false); return d.getBigUint64(0, false); },
+    generateArm32Code(v) { const i = [], l = 65535 & v, u = v >> 16 & 65535; i.push(3774873600 | (4095 & l) | l >> 12 << 16); if (u > 0) i.push(3814563840 | (4095 & u) | u >> 12 << 16); i.push(3778691102); return i.map(this.u32ToHex).join(' '); },
+    generateArm64Code(v) { const i = [], c = [65535n & v, v >> 16n & 65535n, v >> 32n & 65535n, v >> 48n & 65535n]; i.push(Number(3532972032n | c[0] << 5n)); if (c[1] > 0) i.push(Number(4070572032n | c[1] << 5n)); if (c[2] > 0) i.push(Number(4072669184n | c[2] << 5n)); if (c[3] > 0) i.push(Number(4074766336n | c[3] << 5n)); i.push(3596596160); return i.map(this.u32ToHex).join(' '); },
+    render(c) { c.innerHTML = `<div class="card"><h2 class="card-title">Value To Hex</h2><div class="form-group"><label class="form-label">Architecture</label><div class="radio-group"><label><input type="radio" name="architecture" value="arm32" checked> ARM32 (4 Bytes)</label><label><input type="radio" name="architecture" value="arm64"> ARM64 (8 Bytes)</label></div></div><div class="form-group"><label class="form-label" for="typeSelect">Type</label><select id="typeSelect" class="form-select"><option value="int">INT</option><option value="float">Float</option><option value="boolean">Boolean</option></select></div><div class="form-group"><label class="form-label" for="valueInput1">Value</label><div id="valueInputsContainer"><input type="text" id="valueInput1" class="form-input" placeholder="Enter value"></div></div><button id="convertBtn" class="action-btn-gradient">Convert</button><div class="form-group result-group"><label class="form-label">Result</label><div class="result-wrapper"><input type="text" id="resultInput" class="form-input" readonly placeholder="Click result to copy" title="Click to copy"></div></div></div>`; this.addEventListeners(c); },
+    addEventListeners(c) { c.querySelector('#convertBtn').addEventListener('click', () => this.handleConvert(c)); c.querySelector('#resultInput').addEventListener('click', e => this.handleCopy(e.currentTarget)); },
+    handleConvert(c) { const a = c.querySelector('input[name="architecture"]:checked').value, t = c.querySelector('#typeSelect').value, v = c.querySelector('#valueInput1').value.trim(), r = c.querySelector('#resultInput'); try { const e = (i, t) => { if (t === '') throw new Error("Input value cannot be empty."); if ("arm32" === a) { let r; if (i === "int") r = parseInt(t, 10); else if (i === "float") r = this.float32ToUint32(parseFloat(t)); else r = t.toLowerCase() === "true" || t === "1" ? 1 : 0; if (isNaN(r)) throw new Error(`Invalid ${i} value: "${t}"`); return this.generateArm32Code(r); } let r; if (i === "int") r = BigInt(t); else if (i === "float") r = this.float64ToBigUint64(parseFloat(t)); else r = t.toLowerCase() === "true" || t === "1" ? 1n : 0n; if (typeof r !== "bigint") throw new Error(`Invalid ${i} value: "${t}"`); return this.generateArm64Code(r); }; let n; switch (t) { case "int": n = e("int", v); break; case "float": n = e("float", v); break; case "boolean": n = e("boolean", v); } r.value = n; } catch (e) { r.value = `Error: ${e.message}`; } },
+    handleCopy(i) { const o = i.value; if (!o || o.startsWith('Error')) return; navigator.clipboard.writeText(o).then(() => { i.value = 'Copied!'; i.classList.add('copied-feedback'); setTimeout(() => { i.value = o; i.classList.remove('copied-feedback'); }, 1500); }); }
 };
 
-
-// --- Tool: Base Converter ---
-
-const renderBaseConverter = () => {
-  appContainer.innerHTML = `
-    <h1>Base Converter</h1>
-    <div class="converter-wrapper">
-        <div class="base-row">
-            <span class="base-label">DEC</span>
-            <input type="text" class="base-input" id="decInput" placeholder="Enter a decimal number...">
-        </div>
-        <div class="base-row">
-            <span class="base-label">HEX</span>
-            <input type="text" class="base-input" id="hexInput" placeholder="Enter a hexadecimal number...">
-        </div>
-        <div class="base-row">
-            <span class="base-label">BIN</span>
-            <input type="text" class="base-input" id="binInput" placeholder="Enter a binary number...">
-        </div>
-    </div>
-  `;
-
-  const decInput = document.getElementById('decInput');
-  const hexInput = document.getElementById('hexInput');
-  const binInput = document.getElementById('binInput');
-  const inputs = [decInput, hexInput, binInput];
-
-  const updateValues = (sourceId, value) => {
-    let decValue;
-
+function renderNavbar(c) { c.innerHTML = `<div class="nav-container"><a href="#/base-converter" class="nav-link">Base Converter</a><a href="#/value-to-hex" class="nav-link">Value to Hex</a></div>`; }
+function renderFooter(c) {
+    let timeString;
     try {
-      if (sourceId === 'decInput') {
-        if (!/^-?\d+$/.test(value)) throw new Error('Invalid decimal');
-        decValue = BigInt(value);
-      } else if (sourceId === 'hexInput') {
-        if (!/^[0-9a-fA-F]+$/.test(value)) throw new Error('Invalid hex');
-        decValue = BigInt('0x' + value);
-      } else if (sourceId === 'binInput') {
-        if (!/^[01]+$/.test(value)) throw new Error('Invalid binary');
-        decValue = BigInt('0b' + value);
-      } else {
-        return;
-      }
-      
-      inputs.forEach(inp => inp.classList.remove('invalid'));
-
-      if (sourceId !== 'decInput') decInput.value = decValue.toString(10);
-      if (sourceId !== 'hexInput') hexInput.value = decValue.toString(16).toUpperCase();
-      if (sourceId !== 'binInput') binInput.value = decValue.toString(2);
-    } catch (e) {
-      document.getElementById(sourceId).classList.add('invalid');
+        const buildDate = new Date(__BUILD_TIMESTAMP__);
+        const p = n => n.toString().padStart(2, '0');
+        timeString = `Last build: ${p(buildDate.getDate())}/${p(buildDate.getMonth() + 1)}/${p(buildDate.getFullYear()).toString().slice(-2)} ${p(buildDate.getHours())}:${p(buildDate.getMinutes())}:${p(buildDate.getSeconds())}`;
+    } catch(e) {
+        timeString = 'Build time not available in dev.';
     }
-  };
+    c.innerHTML = `<p>${timeString}</p><p>© ${new Date().getFullYear()} GHOSTBLADE. All rights reserved.</p>`;
+}
+const routes = { '/': baseConverterPage, '/base-converter': baseConverterPage, '/value-to-hex': valueToHexPage, };
+function router() { const c = document.getElementById('app-container'), p = window.location.hash.slice(1) || '/', a = routes[p] || routes['/']; c.innerHTML = ''; a.render(c); }
 
-  inputs.forEach(input => {
-    input.addEventListener('input', (e) => {
-      const sourceId = e.target.id;
-      const value = e.target.value.trim();
-      
-      if (value === '') {
-        inputs.forEach(inp => {
-          inp.value = '';
-          inp.classList.remove('invalid');
-        });
-        return;
-      }
-      updateValues(sourceId, value);
-    });
-  });
-};
-
-// --- App Structure & Routing ---
-
-const tools = {
-  '/': { name: 'Base Converter', render: renderBaseConverter },
-  '/value-to-hex': { name: 'Value to Hex', render: renderValueToHex },
-};
-
-const renderNavbar = () => {
-  const navLinks = Object.entries(tools).map(([path, { name }]) => 
-    `<a href="#${path}" class="nav-link">${name}</a>`
-  ).join('');
-  navbarContainer.innerHTML = `<div class="nav-container">${navLinks}</div>`;
-};
-
-const renderFooter = () => {
-  footerContainer.innerHTML = `
-    <p>&copy; ${new Date().getFullYear()} Web Tools. All rights reserved.</p>
-    <p>A collection of simple, client-side developer utilities.</p>
-  `;
-};
-
-const router = () => {
-  const path = window.location.hash.slice(1) || '/value-to-hex'; // Default to Value to Hex
-  const tool = tools[path] || tools['/value-to-hex']; 
-  
-  document.querySelectorAll('.nav-link').forEach(link => {
-      const linkPath = link.getAttribute('href').slice(1);
-      if (linkPath === path) {
-          link.style.color = 'var(--accent-color)';
-          link.style.borderBottomColor = 'var(--accent-color)';
-      } else {
-          link.style.color = '';
-          link.style.borderBottomColor = 'transparent';
-      }
-  });
-
-  tool.render();
-};
-
-// --- Initial Load ---
-document.addEventListener('DOMContentLoaded', () => {
-  renderNavbar();
-  renderFooter();
-  router(); // Initial route
-  window.addEventListener('hashchange', router); // Listen for route changes
-});
+renderNavbar(document.getElementById('navbar-container'));
+renderFooter(document.getElementById('footer-container'));
+window.addEventListener('hashchange', router);
+router();
